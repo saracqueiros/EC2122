@@ -47,13 +47,7 @@ class receiver:
         self.final_key = self.X448_shared_key + self.tweakable
 
 
-    #verifica se a assinatura que vem no texto cifrado corresponde ao que ele espera 
-    # de acordo com a chave acordada com os tweaks
-    def verify_authenticate_message(self, mac_signature, ciphertext):
-        h = hmac.HMAC(self.X448_shared_key, hashes.SHA256(), backend=default_backend())
-        h.update(ciphertext)
-        h.verify(mac_signature)
-
+    
 
     def confirm_key(self, cpht):
         #16 bytes reservados para o nonce
@@ -70,12 +64,18 @@ class receiver:
         else:
             raiseExceptions("Erro na verificacao das chaves acordadas")
 
+    #verifica se a assinatura que vem no texto cifrado corresponde ao que ele espera 
+    # de acordo com a chave acordada com os tweaks
+    def verify_authenticate_message(self, mac_signature, ciphertext):
+        h = hmac.HMAC(self.X448_shared_key, hashes.SHA256(), backend=default_backend())
+        h.update(ciphertext)
+        h.verify(mac_signature)
+
+
     def degenerate_tweak(self, tweak):
         nonce = tweak[0:8]
-        print("tweak",len( tweak))
         contador = int.from_bytes(tweak[8:15], byteorder = 'big')
         tag_final = tweak[15]
-        print("nonce", nonce, "contador", contador, "tag", tag_final)
         return nonce, contador, tag_final
 
 
@@ -89,16 +89,14 @@ class receiver:
             raiseExceptions("Autenticação com falhas!")
             return
         #Se correponder, temos de a decifrar da mesma forma que foi cifrada:
-
         plaintext = b''
         f = b''
-        print("size of the received:" , len(ct))
 
         #no total: bloco + tweak corresponde a corresponde a 32 bytes.
         tweak = ct[0:16]
         block = ct[16:32]
         i = 1
-        nonce, contador, tag_final = self.degenerate_tweak(tweak)
+        _, contador, tag_final = self.degenerate_tweak(tweak)
         while(tag_final!=1):
             cipher = Cipher(algorithms.AES(self.X448_shared_key), mode=modes.XTS(tweak))
             decryptor = cipher.decryptor()
@@ -106,7 +104,7 @@ class receiver:
             plaintext += f
             tweak = ct[i*32:i*32 +16]  
             block = ct[i*32 +16:(i+1)*32]
-            nonce, contador, tag_final = self.degenerate_tweak(tweak)
+            _, contador, tag_final = self.degenerate_tweak(tweak)
             i+= 1
         if (tag_final == 1):
             c =b''
@@ -116,10 +114,8 @@ class receiver:
                 c += bytes([byte ^ mascara[0:16][0]])
             plaintext += c       
 
-        print("size:", len(plaintext))
         unpadder = padding.PKCS7(64).unpadder()
         unpadded_message = unpadder.update(plaintext) + unpadder.finalize()
-        print(unpadded_message.decode("utf-8"))
 
         if (len(unpadded_message.decode("utf-8")) == contador):
             print("Tweak de autenticação validado!")

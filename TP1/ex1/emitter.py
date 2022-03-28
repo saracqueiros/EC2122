@@ -78,12 +78,7 @@ class emitter:
         nonce = os.urandom(8)
         return nonce + contador.to_bytes(7,byteorder = 'big') + tag.to_bytes(1,byteorder = 'big')
 
-    def degenerate_tweak(self, tweak):
-        nonce = tweak[0:8]
-        contador = int.from_bytes(tweak[8:15], byteorder = 'big')
-        tag_final = tweak[15]
-        print("nonce", nonce, "contador", contador, "tag", tag_final)
-        
+ 
    
     def encodeAndSend(self):
         #Guardar o tamanho da mensagem 
@@ -105,7 +100,6 @@ class emitter:
                     #aplicar as máscaras XOR aos blocos  
                     mascara = self.X448_shared_key + tweak
                     middle += bytes([byte ^ mascara[0:16][0]])
-                print("tamanho disto com xor ", len(middle))
                 cipher_text += middle 
                 
             else:
@@ -116,10 +110,6 @@ class emitter:
                 ct = encryptor.update(p)
                 cipher_text += tweak + ct 
             contador += 1
-
-        print("size:", len(cipher_text))
-
-
         self.create_authentication(cipher_text)
         final_ciphered = self.mac + cipher_text 
         return final_ciphered
